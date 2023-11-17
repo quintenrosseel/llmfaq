@@ -1,0 +1,105 @@
+{
+  "title": "Chunk Overview",
+  "version": "2.2",
+  "settings": {
+    "pagenumber": 1,
+    "editable": true,
+    "fullscreenEnabled": false,
+    "parameters": {
+      "neodash_search_query": "dokter"
+    }
+  },
+  "pages": [
+    {
+      "title": "Fulltext Search",
+      "reports": [
+        {
+          "title": "Chunk Overview",
+          "query": "CALL db.index.fulltext.queryNodes(\"fts_Chunk_text\", $neodash_search_query) \nYIELD node, score\nreturn node\norder by score descending\nlimit 10",
+          "width": 7,
+          "height": 2,
+          "x": 0,
+          "y": 1,
+          "type": "graph",
+          "selection": {
+            "Chunk": "chunk_id"
+          },
+          "settings": {
+            "nodePositions": {}
+          }
+        },
+        {
+          "title": "Tip een zoekquery",
+          "query": "RETURN true",
+          "width": 12,
+          "height": 1,
+          "x": 0,
+          "y": 0,
+          "type": "select",
+          "selection": {},
+          "settings": {
+            "nodePositions": {},
+            "type": "Free Text",
+            "entityType": "search_query",
+            "parameterName": "neodash_search_query"
+          }
+        },
+        {
+          "title": "Chunk Ranking",
+          "query": "CALL db.index.fulltext.queryNodes(\"fts_Chunk_text\", $neodash_search_query) YIELD node, score\nreturn \n  node.text as chunk_text, \n  node.embedding as chunk_embedding, \n  score as query_score\norder by score descending\nlimit 10\n\n\n",
+          "width": 5,
+          "height": 2,
+          "x": 7,
+          "y": 1,
+          "type": "table",
+          "selection": {},
+          "settings": {
+            "nodePositions": {}
+          }
+        }
+      ]
+    },
+    {
+      "title": "Overview",
+      "reports": [
+        {
+          "title": "Schema Overview",
+          "query": "call db.schema.visualization()\n\n\n",
+          "width": 5,
+          "height": 3,
+          "x": 0,
+          "y": 0,
+          "type": "graph",
+          "selection": {
+            "_Neodash_Dashboard": "name",
+            "WebPage": "name",
+            "Chunk": "name",
+            "Catalog": "name"
+          },
+          "settings": {
+            "nodePositions": {}
+          }
+        },
+        {
+          "title": "Indexing Catalog",
+          "query": "match r=(c:Chunk)<-[:HAS_CHUNK]-(:WebPage)--(:Catalog)\nreturn r\n",
+          "width": 7,
+          "height": 3,
+          "x": 5,
+          "y": 0,
+          "type": "graph",
+          "selection": {
+            "Chunk": "(label)",
+            "WebPage": "title",
+            "Catalog": "name"
+          },
+          "settings": {
+            "nodePositions": {}
+          }
+        }
+      ]
+    }
+  ],
+  "parameters": {},
+  "extensions": {}
+}

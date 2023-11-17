@@ -1,0 +1,48 @@
+## Apple Files 
+.DS_Store
+*/.DS_Store
+
+
+## AML environment specific files
+aml/models/*
+aml/models/
+aml/models/model_cache_xl/
+aml/models/model_cache_xl/*
+*.aml
+.ipynb_aml_checkpoints/*
+.ipynb_aml_checkpoints/
+
+*.amltmp
+.gitignore.amltmp                                                       
+
+## API files
+api/.env
+api/.venv/*
+api/.venv
+.env
+api/src/models/*
+
+## Infra files
+/infra/auth/key.txt
+
+# Local .terraform directories
+**/.terraform/*
+.terraform
+.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+
+# Ignore any .tfvars files that are automatically generated
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*_overrides.tf
+*_overrides.tf.json
+.terraformrc
+terraform.rc
