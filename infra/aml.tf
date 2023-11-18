@@ -66,22 +66,22 @@ resource "azurerm_machine_learning_compute_instance" "rossequ" {
 # PERSONAL COMPUTE GPU Q =============================================
 # Not working due to quota limits as of now 
 # Limit upped, added on 18 November 2023, still doesn't work because of a forbidden error. 
-resource "azurerm_machine_learning_compute_instance" "gpu_instance" {
-  name                          = "rossequ-gpu" 
-  location                      = azurerm_resource_group.rg.location
-  machine_learning_workspace_id = azurerm_machine_learning_workspace.ml_workspace.id
-  virtual_machine_size          = "Standard_NC6s_v3"  # GPU-based VM size
-  authorization_type            = "personal"
-  ssh {
-    public_key = var.ssh_key_gpu
-  }
+# resource "azurerm_machine_learning_compute_instance" "gpu_instance" {
+#   name                          = "rossequ-gpu" 
+#   location                      = azurerm_resource_group.rg.location
+#   machine_learning_workspace_id = azurerm_machine_learning_workspace.ml_workspace.id
+#   virtual_machine_size          = "Standard_NC6s_v3"  # GPU-based VM size
+#   authorization_type            = "personal"
+#   ssh {
+#     public_key = var.ssh_key_gpu
+#   }
 
-  subnet_resource_id = azurerm_subnet.subnet.id
-  description        = "GPU compute instance"
-  tags = {
-    type = "gpu"
-  }
-}
+#   subnet_resource_id = azurerm_subnet.subnet.id
+#   description        = "GPU compute instance"
+#   tags = {
+#     type = "gpu"
+#   }
+# }
 
 # OPENAI =============================================
 # Not explored yet. 
