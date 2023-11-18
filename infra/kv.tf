@@ -67,6 +67,7 @@ access_policy {
   }
 }
 
+# TODO: obfuscate the secrets 
 resource "azurerm_key_vault_secret" "neo4j_url" {
   name         = "NEO4JURL"
   value        = "bolt://10.0.1.4/:7687"

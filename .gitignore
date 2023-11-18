@@ -23,7 +23,8 @@ api/.venv
 api/src/models/*
 
 ## Infra files
-/infra/auth/key.txt
+/infra/auth/key_rossequ
+/infra/auth/key_rossequ_gpu
 
 # Local .terraform directories
 **/.terraform/*

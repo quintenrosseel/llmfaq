@@ -7,6 +7,10 @@ variable "ssh_key" {
   default = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDhRReNaJCWRWspPsviwX1IiEhD3+7IDmt6Da3eJ81rBZLus7IKf+JUxKNAm+8fX/Ovqdy/+fFHs9h0HK8kk/IWu2fU6jk4X1JDMO8J8UXfM8Y4v84xu2e/+pDvh3Cx64MHG5KzXwRxD8YgoMaIY4Dc/vStxc3+DWmzoT5IJ0KCOKeZJnmeqH29ck49fe/S120VPAp1R1nmISJ6B2RiWur8aEZfI0QuvO4jfMA9KskOO5bH3KsG1yCNqPKzEECCeGtVv5nF56BEPDckGlECKOXqnM7jT+mpzB9gBBy6uP9reLuie6rtsOk0kIZjPJhzSVravXcB3tyc4AxlXVzkz7LaT6J/DBA93jMg10sk22o/sIb/zySRlJCPI8ieu2tJs8ubxYt5ehznV+WHPsLmhmtY087zGRTQHxZUU3BCu/gya454my5ZPdg/lVV5fMdpjOnGGTMQlhoS+0yfhH4/kYctaBuOZqfyuuftN0oMRbG7c/a+WaTJUtpZDMnm6gYzqvzrEmuNDSpSaDdXRgHZ0QgIlFqsH/W6MraDUFoAh9x6CAreoHPKsUVUV1sq1qr5bIcGBDlp1XNIhjfB1Tm/nptvDhx3qbP5zXvY0rJgKfqh7T0e6zO+155BPsHmAVtAu3+fTNT6UK8Ks3PxGVki5TkJY9Ch+XKwyx6G0Mh7/K1NbQ== rossequ@cronos.be"
 }
 
+variable "ssh_key_gpu" {
+  default = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD4JSaEroVvkKulhm4nKr6lN8vNFXqh+9tYWuUqaZf6S+Va+WUcXKeGSVA4Q/qLXczazq9rIlTkVfp2cQrW/PahXxUCnuyH/fT9Bh9eFQmbJhn3Hw8nkpLJi10C2taJrSuf2i649cl0fIIP2p5Ebds79CeP09NinKealsn/BzlGN9IToMhoticwfaWCEkHhoawqJeAWBXKswzRHVC+mHnbtt6gSYjTeBIUgxFetYtwDNC8izZPwZJdUUKR9vtFqPFwNBbPOvr8utlFBvqtwV3Vjnx+QMuC8sSRX9iGMB4+fbmMfeLf//6Zjyh1WVRZ3lGkYndKJIyxqoN6oje6rja05 quintenrosseel@quintens-MacBook-Pro.local"
+}
+
 # APPLICATION INSIGHTS =============================================
 # A default thing you need for AML
 resource "azurerm_application_insights" "ai" {
@@ -61,24 +65,23 @@ resource "azurerm_machine_learning_compute_instance" "rossequ" {
 
 # PERSONAL COMPUTE GPU Q =============================================
 # Not working due to quota limits as of now 
+# Limit upped, added on 18 November 2023, still doesn't work because of a forbidden error. 
+resource "azurerm_machine_learning_compute_instance" "gpu_instance" {
+  name                          = "rossequ-gpu" 
+  location                      = azurerm_resource_group.rg.location
+  machine_learning_workspace_id = azurerm_machine_learning_workspace.ml_workspace.id
+  virtual_machine_size          = "Standard_NC6s_v3"  # GPU-based VM size
+  authorization_type            = "personal"
+  ssh {
+    public_key = var.ssh_key_gpu
+  }
 
-# resource "azurerm_machine_learning_compute_instance" "gpu_instance" {
-#   name                          = "gpu-instance-name"  # Replace with your desired name
-#   location                      = azurerm_resource_group.rg.location
-#   machine_learning_workspace_id = azurerm_machine_learning_workspace.ml_workspace.id
-#   virtual_machine_size          = "STANDARD_NV12s_v3"  # GPU-based VM size
-#   authorization_type            = "personal"
-
-#   ssh {
-#     public_key = var.ssh_key
-#   }
-
-#   subnet_resource_id = azurerm_subnet.subnet.id
-#   description        = "GPU compute instance"
-#   tags = {
-#     type = "gpu"
-#   }
-# }
+  subnet_resource_id = azurerm_subnet.subnet.id
+  description        = "GPU compute instance"
+  tags = {
+    type = "gpu"
+  }
+}
 
 # OPENAI =============================================
 # Not explored yet. 
