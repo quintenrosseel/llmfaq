@@ -21,6 +21,8 @@ api/.venv/*
 api/.venv
 .env
 api/src/models/*
+/.venv/* 
+/.venv
 
 ## Infra files
 /infra/auth/key_rossequ
