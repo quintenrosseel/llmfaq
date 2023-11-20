@@ -19,7 +19,7 @@ class ChatConfig(BaseModel):
     prompt_template: str
     retrieval_model_selection: int
     generative_model_selection: int
-    # TODO: add metadata selection here
+    use_metadata: int
 
 class QASession(BaseModel):
     """
@@ -31,45 +31,10 @@ class QASession(BaseModel):
     user: str 
     feedback: str
     response: str 
+    # TODO: extend with feedback from client. 
 
-
-# NEEDED? 
-class Prompt(BaseModel):
+class DBResponse(BaseModel):
     """
-    A Pydantic model representing a LLM prompt
+    A Pydantic model representing the configuration of the chatbot.
     """
-    prompt: str
-
-class Question(BaseModel):
-    """
-    A Pydantic model representing a search question. 
-    """
-    search_string: str
-
-class ChunkMetadata(BaseModel):
-    """
-    A Pydantic model representing metadata.
-    """
-    chunk_size: int
-    embedding_model: str
-    chunk_order: int
-    chunk_overlap: int
-    chunk_id: int
-
-class Document(BaseModel):
-    """
-    A Pydantic model representing a document.
-    Wrapper around langchains langchain.schema.document.Document.
-    """
-    page_content: str
-    metadata: ChunkMetadata
-
-class Answer(BaseModel):
-    """
-    A Pydantic model representing an answer to a question.
-    """
-    context: List[Document]
-    llm_prompt: str
-    llm_answer: str
-    language: str
-    score: FeedbackEnum
+    success: bool

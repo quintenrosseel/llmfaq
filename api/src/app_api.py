@@ -11,7 +11,7 @@ from langchain.chains import RetrievalQA  # Q&A retrieval system.
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from app_config import (API_DESCRIPTION, APP_DEBUG, RETRIEVER_SEARCH_CONFIG, BASE_PROMPT_TEMPLATE_NL)
-from app_models import (QASession)
+from app_models import (QASession, DBResponse)
 from app_api_helpers import (docs_to_str, chunk_paths_to_docs, get_neo4j_node_paths, question_to_context)
 
 import uvicorn
@@ -108,8 +108,9 @@ neo4j_retrieval_graph = Neo4jVector.from_existing_index(
 )
 
 ## API ENDPOINTS =============================================
-@app.post('/answer/generate', status_code=201, response_model=QASession)
-def generate_answer(session: QASession):
+QA_SESSION = None
+@app.post('/answer/create', status_code=201, response_model=QASession)
+def create_answer(session: QASession):
     """
     Endpoint that takes in a QA Session and generates an answer. 
 
@@ -120,14 +121,18 @@ def generate_answer(session: QASession):
         An Answer Pydantic model representing the generated answer.
     """
     q = session.user_question   
+    # if QA_SESSION and QA_SESSION.user_question == q:
+    #     return q
 
     # Set retriever based on config (0 = QA, 1 = Retrieval Model)
     if session.chat_config.retrieval_model_selection == 0:
-        retriever = neo4j_qa_graph
+        graph = neo4j_qa_graph
+        retriever = graph.as_retriever(**RETRIEVER_SEARCH_CONFIG)
         model = robbert_model
         embedding_index = "vi_chunk_qa_embedding_cosine"
     else:
-        retriever = neo4j_retrieval_graph
+        graph = neo4j_retrieval_graph
+        retriever = graph.as_retriever(**RETRIEVER_SEARCH_CONFIG)
         model = instructor_model
         embedding_index = "vi_chunk_retrieval_embedding_cosine"
     
@@ -188,6 +193,9 @@ def generate_answer(session: QASession):
         include_run_info=True
     )
 
+    # CACHE QA SESSION 
+
+    #TODO: Add explicit link to chunks
     return QASession(
         prompt=session.chat_config.prompt_template.format_map(llm_answer),
         user_question=session.user_question,
@@ -195,6 +203,26 @@ def generate_answer(session: QASession):
         user=session.user, 
         feedback=session.feedback,
         response=llm_answer['text']
+    )
+
+@app.post('/answer/feedback', status_code=201, response_model=DBResponse)
+def create_answer_feedback(session: QASession):
+    """
+    Endpoint that takes in a QA Session and generates an answer. 
+
+    Args:
+        session (QASession): A Pydantic model representing a chat session.
+
+    Returns:
+        An Answer Pydantic model representing the DB Response. 
+    """
+    
+    print("Saving to database...")
+
+    print("Success!")
+    # TODO: save to database! 
+    return DBResponse(
+        success=True
     )
 
 def main():
