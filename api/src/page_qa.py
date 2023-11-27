@@ -21,6 +21,14 @@ load_dotenv()
 
 # TOOD: Add Streaming to the QA
 def handle_question(user_question: str) -> QASession:
+    """_summary_
+
+    Args:
+        user_question (str): _description_
+
+    Returns:
+        QASession: _description_
+    """
     # Get current QA sesssion
     qa_session = st.session_state["current_qa_session"]
 
