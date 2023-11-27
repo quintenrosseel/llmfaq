@@ -1,0 +1,6 @@
+pydantic
+fastapi
+python-dotenv
+streamlit
+streamlit-option-menu
+requests

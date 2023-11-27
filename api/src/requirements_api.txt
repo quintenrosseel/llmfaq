@@ -1,0 +1,11 @@
+pydantic
+fastapi
+neo4j
+python-dotenv
+langchain
+uvicorn
+InstructorEmbedding==1.0.1
+sentence-transformers==2.2.2
+openai
+requests
+neomodel

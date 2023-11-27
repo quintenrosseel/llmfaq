@@ -11,6 +11,8 @@ aml/models/model_cache_xl/*
 *.aml
 .ipynb_aml_checkpoints/*
 .ipynb_aml_checkpoints/
+/api/docker-compose.yml
+
 
 *.amltmp
 .gitignore.amltmp                                                       
@@ -20,7 +22,13 @@ api/.env
 api/.venv/*
 api/.venv
 .env
+.env_prd
+
 api/src/models/*
+api/src/src/models/*
+api/models/*
+api/src/__pycache__/*
+api/src/__pycache__
 /.venv/* 
 /.venv
 

@@ -1,0 +1,20 @@
+FROM python:3.8
+
+# Streamlit pages
+COPY ./src/app_view.py /app/app_view.py
+COPY ./src/page_qa.py /app/page_qa.py
+COPY ./src/page_configure.py /app/app_configure.py
+
+# Shared App Helpers
+COPY ./src/app_models.py /app/app_models.py
+COPY ./src/app_config.py /app/app_config.py
+COPY ./src/app_view.py /app/app_view.py
+
+COPY ./src/requirements_streamlit.txt /app/requirements.txt
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install -r requirements.txt
+
+CMD ["streamlit", "run", "app_view.py", "--server.port=8501", "--server.address=0.0.0.0"]

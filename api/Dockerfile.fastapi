@@ -1,0 +1,49 @@
+FROM python:3.8-slim
+
+# Install some basic utilities
+RUN apt-get update && apt-get install python3 python3-pip -y
+
+# Install some basic utilities
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    sudo \
+    # git \
+    bzip2 \
+    libx11-6 \
+    build-essential \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install OpenCV3 Python bindings
+RUN sudo apt-get update
+
+# Create a working directory
+RUN mkdir /app
+COPY ./src/requirements_api.txt /app/requirements.txt
+
+# Add requirements file
+WORKDIR /app/
+
+# Install requirements
+RUN pip3 install pip -U
+RUN pip3 install -r requirements.txt
+
+# API pages
+COPY ./src/app_api_helpers.py /app/app_api_helpers.py
+COPY ./src/app_api.py /app/app_api.py
+
+# Shared App Helpers
+COPY ./src/app_models.py /app/app_models.py
+COPY ./src/app_config.py /app/app_config.py
+COPY ./src/app_view.py /app/app_view.py
+
+# Environment Variables
+COPY ./src/.env_prd /app/.env
+
+# Model Data (skip locally)
+# COPY ./src/models/* /app/models/
+
+CMD ["uvicorn", "src.app_api:app", "--host", "0.0.0.0", "--port", "8000"]
+# CMD ["python", "app_api.py"]

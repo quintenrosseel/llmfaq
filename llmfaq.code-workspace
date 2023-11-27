@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "api"
+		},
+		{
+			"path": "aml"
+		},
+		{
+			"path": "infra"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.terminal.activateEnvironment": true
+	}
+}

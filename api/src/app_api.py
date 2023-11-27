@@ -1,25 +1,42 @@
-from typing import List
-from fastapi import FastAPI
-from neo4j import GraphDatabase
-from langchain.vectorstores import Neo4jVector
-from dotenv import load_dotenv
-from langchain.prompts import ChatPromptTemplate
-from langchain.vectorstores import Neo4jVector
-from langchain.embeddings import HuggingFaceInstructEmbeddings, HuggingFaceEmbeddings
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import RetrievalQA  # Q&A retrieval system.
-from langchain.prompts import PromptTemplate
-from langchain.schema.output_parser import StrOutputParser
-from app_config import (API_DESCRIPTION, APP_DEBUG, RETRIEVER_SEARCH_CONFIG, BASE_PROMPT_TEMPLATE_NL)
-from app_models import (QASession, DBResponse)
-from app_api_helpers import (docs_to_str, chunk_paths_to_docs, get_neo4j_node_paths, question_to_context)
-
-import uvicorn
 import os
-import langchain
 from datetime import datetime
-from pydantic import BaseModel
+from typing import List
+
+import langchain
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from langchain.chains import RetrievalQA  # Q&A retrieval system.
 from langchain.chains import LLMChain
+from langchain.chat_models import ChatOpenAI
+from langchain.embeddings import HuggingFaceEmbeddings, HuggingFaceInstructEmbeddings
+from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain.schema.output_parser import StrOutputParser
+from langchain.vectorstores import Neo4jVector
+from neo4j import GraphDatabase
+from neomodel import (
+    ArrayProperty,
+    FloatProperty,
+    IntegerProperty,
+    RelationshipTo,
+    StringProperty,
+    StructuredNode,
+    UniqueIdProperty,
+    config,
+    db,
+)
+from neomodel.contrib import SemiStructuredNode
+from neomodel.core import NodeClassAlreadyDefined
+from pydantic import BaseModel
+
+from app_api_helpers import (
+    chunk_paths_to_docs,
+    docs_to_str,
+    get_neo4j_node_paths,
+    question_to_context,
+)
+from app_config import API_DESCRIPTION, APP_DEBUG, BASE_PROMPT_TEMPLATE_NL
+from app_models import DBResponse, QASession
 
 """
     This is a FastAPI application that provides 
@@ -27,11 +44,11 @@ from langchain.chains import LLMChain
 """
 
 #### Configure Environment =================
-if APP_DEBUG: 
+if APP_DEBUG:
     langchain.verbose = True
     langchain.debug = True
 
-load_dotenv() 
+load_dotenv()
 
 # FastAPI
 app = FastAPI(
@@ -50,69 +67,119 @@ app = FastAPI(
     },
 )
 
-
 #### NLP Models =================
-model_kwargs = {
-    'device': 'cpu'
-}
-
+model_kwargs = {"device": "cpu"}
 encode_kwargs = {
     # 'normalize_embeddings': True,
-    'show_progress_bar': False
+    "show_progress_bar": False
 }
 
-instructor_model = HuggingFaceInstructEmbeddings(
-    model_name="hkunlp/instructor-xl", 
-    cache_folder='src/models/hkunlp_instructor-xl',
+# TODO: Cleanup Huggingface Imports
+instructor_model: langchain.embeddings.Embeddings = HuggingFaceInstructEmbeddings(
+    model_name="hkunlp/instructor-xl",
+    cache_folder="src/models/hkunlp_instructor-xl",
     embed_instruction="Represent the Medical question for retrieving supporting paragraphs: ",
     model_kwargs=model_kwargs,
-    encode_kwargs=encode_kwargs
+    encode_kwargs=encode_kwargs,
 )
 
-robbert_model = HuggingFaceEmbeddings(
-    model_name="jegorkitskerkin/robbert-v2-dutch-base-mqa-finetuned", 
-    cache_folder='src/models/robbert-v2-dutch-base-mqa-finetuned',
+robbert_model: langchain.embeddings.Embeddings = HuggingFaceEmbeddings(
+    model_name="jegorkitskerkin/robbert-v2-dutch-base-mqa-finetuned",
+    cache_folder="src/models/robbert-v2-dutch-base-mqa-finetuned",
     model_kwargs=model_kwargs,
-    encode_kwargs=encode_kwargs
+    encode_kwargs=encode_kwargs,
 )
 
 #### DB =================
-driver = GraphDatabase.driver(
-    os.getenv("NEO4J_URI"), 
-    auth=(
-        os.getenv("NEO4J_USER"), 
-        os.getenv("NEO4J_PASSWORD")
-    )
+# driver = GraphDatabase.driver(
+#     os.getenv("NEO4J_URI"),
+#     auth=(
+#         os.getenv("NEO4J_USER"),
+#         os.getenv("NEO4J_PASSWORD")
+#     )
+# )
+
+
+# Neo4j Neomodel
+class Chunk(StructuredNode):
+    chunk_id = IntegerProperty()
+    embedding_model = StringProperty()
+    embedding = ArrayProperty()
+    text = StringProperty()
+    chunk_order = IntegerProperty()
+    chunk_size = IntegerProperty()
+    chunk_overlap = IntegerProperty()
+    next_chunk = RelationshipTo("Chunk", "NEXT_CHUNK")
+
+
+class QA(StructuredNode):
+    config_temperature = FloatProperty()
+    config_context_amount = IntegerProperty()
+    config_prompt_template = StringProperty()
+    config_retrieval_model_selection = IntegerProperty()
+    config_generative_model_selection = IntegerProperty()
+    config_use_metadata = IntegerProperty()
+    user_question = StringProperty()
+    correction = StringProperty()
+    corectness = IntegerProperty()
+    helpfulness = IntegerProperty()
+    prompt = StringProperty()
+    user = StringProperty()
+    feedback = StringProperty()
+    response = StringProperty()
+    timestamp = StringProperty()
+    related_chunk = RelationshipTo("Chunk", "HAS_RETRIEVED")
+
+
+# config.DRIVER = driver
+# config.DATABASE_NAME = os.getenv("NEO4J_DB"),
+# db.set_connection(driver=driver)
+config.DATABASE_URL = (
+    f"bolt://{os.getenv('NEO4J_USER')}:{os.getenv('NEO4J_PASSWORD')}@"
+    + os.getenv("NEO4J_URI").replace("bolt://", "").replace("/:7687", ":7687/neo4j")
 )
 
-# QA with robbert model 
-neo4j_qa_graph = Neo4jVector.from_existing_index(
-    embedding=robbert_model,
-    url=os.getenv("NEO4J_URI"),
-    username=os.getenv("NEO4J_USER"),
-    password=os.getenv("NEO4J_PASSWORD"),
-    index_name="vi_chunk_qa_embedding_cosine",
-    keyword_index_name="fts_Chunk_text",
-    search_type="hybrid",
-)
+# TODO: Check if DB URL config is needed
+# Using URL - auto-managed
+db.set_connection(url=config.DATABASE_URL)
 
-# Retrieval with instructor model
-neo4j_retrieval_graph = Neo4jVector.from_existing_index(
-    embedding=instructor_model,
-    url=os.getenv("NEO4J_URI"),
-    username=os.getenv("NEO4J_USER"),
-    password=os.getenv("NEO4J_PASSWORD"),
-    index_name="vi_chunk_retrieval_embedding_cosine",
-    keyword_index_name="fts_Chunk_text",
-    search_type="hybrid",
-)
+
+def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
+    """
+    Don't use global variables to avoid DB connection timeouts.
+    """
+    if retriever_type == "qa":
+        return Neo4jVector.from_existing_index(
+            embedding=robbert_model,
+            url=os.getenv("NEO4J_URI"),
+            username=os.getenv("NEO4J_USER"),
+            password=os.getenv("NEO4J_PASSWORD"),
+            index_name="vi_chunk_qa_embedding_cosine",
+            keyword_index_name="fts_Chunk_text",
+            search_type="hybrid",
+        )
+    elif retriever_type == "retrieval":
+        return Neo4jVector.from_existing_index(
+            embedding=instructor_model,
+            url=os.getenv("NEO4J_URI"),
+            username=os.getenv("NEO4J_USER"),
+            password=os.getenv("NEO4J_PASSWORD"),
+            index_name="vi_chunk_retrieval_embedding_cosine",
+            keyword_index_name="fts_Chunk_text",
+            search_type="hybrid",
+        )
+    else:
+        "Invalid retriever type."
+
 
 ## API ENDPOINTS =============================================
 QA_SESSION = None
-@app.post('/answer/create', status_code=201, response_model=QASession)
+
+
+@app.post("/answer/create", status_code=201, response_model=QASession)
 def create_answer(session: QASession):
     """
-    Endpoint that takes in a QA Session and generates an answer. 
+    Endpoint that takes in a QA Session and generates an answer.
 
     Args:
         session (QASession): A Pydantic model representing a chat session.
@@ -120,113 +187,163 @@ def create_answer(session: QASession):
     Returns:
         An Answer Pydantic model representing the generated answer.
     """
-    q = session.user_question   
-    # if QA_SESSION and QA_SESSION.user_question == q:
-    #     return q
+    q = session.user_question
+    print(session)
+    # TODO: Add MMR algorithm ability
+    retriever_search_config = {
+        # "similarity" (default), "mmr", or "similarity_score_threshold".
+        "search_type": "similarity",
+        "search_kwargs": {
+            # Amount of documents to return (default: 4).
+            "k": session.chat_config.context_amount,
+            # Amount of documents to pass to the MMR algorithm
+            # # (default: 20).
+            "fetch_k": 50,
+            # Minimum relevance threshold for similarity_score_threshold.
+            "score_threshold": 0,
+            # Diversity of results returned by MMR;
+            # # 1 for minimum diversity and 0 for maximum (default: 0.5).
+            "lambda_mult": 0.25,
+            # Filter by document metadata.
+            "filter": {"chunk_size": 500},
+        },
+    }
 
     # Set retriever based on config (0 = QA, 1 = Retrieval Model)
     if session.chat_config.retrieval_model_selection == 0:
-        graph = neo4j_qa_graph
-        retriever = graph.as_retriever(**RETRIEVER_SEARCH_CONFIG)
+        graph = get_retrieval_db(retriever_type="qa")
+        retriever = graph.as_retriever(**retriever_search_config)
         model = robbert_model
         embedding_index = "vi_chunk_qa_embedding_cosine"
     else:
-        graph = neo4j_retrieval_graph
-        retriever = graph.as_retriever(**RETRIEVER_SEARCH_CONFIG)
+        graph = get_retrieval_db(retriever_type="retrieval")
+        retriever = graph.as_retriever(**retriever_search_config)
         model = instructor_model
         embedding_index = "vi_chunk_retrieval_embedding_cosine"
-    
-    # TODO: set LLM based on config 
-    # Set temperature for LLM
+
+    # TODO: Check for Mistral / LLama2 open source models.
+    # 0 = OpenAI, 1 is Olama
     llm = ChatOpenAI(
+        model_name="gpt-3.5-turbo-16k",
         temperature=session.chat_config.temperature,
     )
 
     llm_prompt = PromptTemplate(
         input_variables=["context", "question", "language"],
-        template=session.chat_config.prompt_template
+        template=session.chat_config.prompt_template,
     )
 
-    llm_chain = LLMChain(
-        prompt=llm_prompt, 
-        llm=llm,
-        verbose=APP_DEBUG
-    )
-    
-    # Set metadata based on config (0 = Use, 1 = Don't use)
+    llm_chain = LLMChain(prompt=llm_prompt, llm=llm, verbose=APP_DEBUG)
+
+    # TODO: Add QA session as additional context (if available)
+    # Set metadata based on config (1 = Use, 0 = Don't use)
     if session.chat_config.use_metadata == 0:
         # Get relevant documents, without context (langchain)
-        docs: List[langchain.schema.document.Document] = (
-            retriever.get_relevant_documents(q)
-        )
-        include_metadata = True
+        docs: List[
+            langchain.schema.document.Document
+        ] = retriever.get_relevant_documents(q)
+        include_metadata = False
     else:
         # GEt relevant documents, with context (manual)
         docs: List[langchain.schema.document.Document] = question_to_context(
-            question=q, 
-            graph=neo4j_qa_graph,
+            question=q,
+            graph=graph,
             limit=session.chat_config.context_amount,
             embedding_model=model,
             embedding_index=embedding_index,
-            to_str=False
-        ) 
-        include_metadata=False
+            to_str=False,
+        )
+        include_metadata = True
 
     llm_answer = llm_chain.invoke(
         input={
             "question": q,
             "context": docs_to_str(
                 docs,
-                include_metadata=False, 
+                include_metadata=include_metadata,
                 skip_meta_keys=[
-                    'chunk_id', 
-                    'chunk_order', 
-                    'chunk_overlap', 
-                    'chunk_size', 
-                    'qa_embedding_model', 
-                    'retrieval_embedding_model'
-                ]
+                    "chunk_id",
+                    "chunk_order",
+                    "chunk_overlap",
+                    "chunk_size",
+                    "qa_embedding_model",
+                    "retrieval_embedding_model",
+                    "qa_embedding",
+                    "retrieval_embedding",
+                ],
             ),
-            "language": "Nederlands"
+            "language": "Nederlands",
         },
         return_only_outputs=False,
-        include_run_info=True
+        include_run_info=True,
     )
 
-    # CACHE QA SESSION 
+    print(session.chat_config.prompt_template.format_map(llm_answer))
 
-    #TODO: Add explicit link to chunks
+    chunk_ids: List[int] = [doc.metadata["chunk_id"] for doc in docs]
     return QASession(
         prompt=session.chat_config.prompt_template.format_map(llm_answer),
         user_question=session.user_question,
         chat_config=session.chat_config,
-        user=session.user, 
+        user=session.user,
+        helpfulness=session.helpfulness,
+        corectness=session.corectness,
+        correction=llm_answer["text"],
         feedback=session.feedback,
-        response=llm_answer['text']
+        response=llm_answer["text"],
+        chunk_ids=chunk_ids,
+        timestamp=session.timestamp,
     )
 
-@app.post('/answer/feedback', status_code=201, response_model=DBResponse)
+
+@app.post("/answer/feedback", status_code=201, response_model=DBResponse)
 def create_answer_feedback(session: QASession):
     """
-    Endpoint that takes in a QA Session and generates an answer. 
+    Endpoint that takes in a QA Session and generates an answer.
 
     Args:
         session (QASession): A Pydantic model representing a chat session.
 
     Returns:
-        An Answer Pydantic model representing the DB Response. 
+        An Answer Pydantic model representing the DB Response.
     """
-    
-    print("Saving to database...")
 
-    print("Success!")
-    # TODO: save to database! 
-    return DBResponse(
-        success=True
+    # Save QA nodes to DB
+    qa = QA(
+        config_temperature=session.chat_config.temperature,
+        config_context_amount=session.chat_config.context_amount,
+        config_prompt_template=session.chat_config.prompt_template,
+        config_retrieval_model_selection=session.chat_config.retrieval_model_selection,
+        config_generative_model_selection=session.chat_config.generative_model_selection,
+        config_use_metadata=session.chat_config.use_metadata,
+        user_question=session.user_question,
+        prompt=session.prompt,
+        user=session.user,
+        helpfulness=session.helpfulness,
+        corectness=session.corectness,
+        feedback=session.feedback,
+        response=session.response,
+        correction=session.correction,
+        chunk_ids=session.chunk_ids,
+        timestamp=session.timestamp,
     )
+
+    # Save in DB
+    qa.save()
+
+    for chunk_id in session.chunk_ids:
+        chunk = Chunk.nodes.get_or_none(chunk_id=chunk_id)
+        if chunk is not None:
+            qa.related_chunk.connect(chunk)
+        else:
+            print(f"Chunk with id {chunk_id} not found in DB")
+
+    return DBResponse(success=True)
+
 
 def main():
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 if __name__ == "__main__":
     main()

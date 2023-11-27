@@ -25,13 +25,17 @@ class QASession(BaseModel):
     """
     A Pydantic model representing a chat message.
     """
+    timestamp: str
     chat_config: ChatConfig
     user_question: str
     prompt: str
-    user: str 
-    feedback: str
     response: str 
-    # TODO: extend with feedback from client. 
+    user: str 
+    helpfulness: int
+    corectness: int
+    feedback: str
+    correction: str
+    chunk_ids: List[int]
 
 class DBResponse(BaseModel):
     """
