@@ -152,8 +152,12 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
             search_type="hybrid",
         )
     elif retriever_type == "experiment":
+        embedding = OpenAIEmbeddings(
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            model="text-embedding-ada-002",
+        )
         return Neo4jVector.from_existing_index(
-            embedding=instructor_model,
+            embedding=embedding,
             url=os.getenv("NEO4J_URI"),
             username=os.getenv("NEO4J_USER"),
             password=os.getenv("NEO4J_PASSWORD"),
