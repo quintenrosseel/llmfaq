@@ -29,7 +29,6 @@ def show():
     if user_question:
         # Display the submitted question
         embedding = handle_question(user_question)
-        print(embedding)
-        st.write("Je hebt gevraagd:", embedding)
+        st.write(embedding)
     else:
         st.write("Voer een vraag in om te beginnen.")

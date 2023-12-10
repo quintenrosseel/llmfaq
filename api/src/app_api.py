@@ -151,6 +151,16 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
             keyword_index_name="fts_Chunk_text",
             search_type="hybrid",
         )
+    elif retriever_type == "experiment":
+        return Neo4jVector.from_existing_index(
+            embedding=instructor_model,
+            url=os.getenv("NEO4J_URI"),
+            username=os.getenv("NEO4J_USER"),
+            password=os.getenv("NEO4J_PASSWORD"),
+            index_name="qa_experiment",
+            keyword_index_name="fts_Chunk_text",
+            search_type="hybrid",
+        )
     elif retriever_type == "retrieval":
         return Neo4jVector.from_existing_index(
             embedding=instructor_model,
@@ -169,10 +179,10 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
 QA_SESSION = None
 
 
-openai = OpenAIEmbeddings(
-    openai_api_key=os.getenv("OPENAI_API_KEY"),
-    model="text-embedding-ada-002" 
-)
+# openai = OpenAIEmbeddings(
+#     openai_api_key=os.getenv("OPENAI_API_KEY"),
+#     model="text-embedding-ada-002" 
+# )
 
 @app.get("/experiment/answer/create", status_code=201, response_model=object)
 def create_experiment_answer(question: str):
@@ -182,19 +192,16 @@ def create_experiment_answer(question: str):
         question (str): A string representing a question.
     Returns a string
     """
-    query_embedding = openai.embed_query(question)
-    graph = get_retrieval_db(retriever_type="qa")
+    # query_embedding = openai.embed_query(question)
+    graph = get_retrieval_db(retriever_type="experiment")
     retriever = graph.as_retriever(search_type="similarity")
-    retrieved_nodes = retriever.get_relevant_documents(query_embedding)  # Retrieve the top 1 node
+    retrieved_nodes = retriever.get_relevant_documents(question)  # Retrieve the top 0 node
 
     if retrieved_nodes:
-        # Assuming you want to return the node's properties as a dictionary
-        node_properties = retrieved_nodes[0].to_dict()
-        return node_properties
+        return (retrieved_nodes[0].page_content)
+
     else:
         return {"error": "No matching node found."}
-
-    return query_result 
 
 # TODO: Add auto-merge pipeline
 # TODO: Add Translation Interface
