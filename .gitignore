@@ -2,7 +2,6 @@
 .DS_Store
 */.DS_Store
 
-
 ## AML environment specific files
 aml/models/*
 aml/models/
@@ -35,6 +34,7 @@ api/src/__pycache__
 ## Infra files
 /infra/auth/key_rossequ
 /infra/auth/key_rossequ_gpu
+/infra/kv_secret.tf
 
 # Local .terraform directories
 **/.terraform/*
