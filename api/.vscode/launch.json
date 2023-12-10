@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: app_api.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/app_api.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${workspaceFolder}/.venv/bin/python" // For Unix-like systems
+        }
+    ]
+}

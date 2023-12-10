@@ -136,6 +136,17 @@ config.DATABASE_URL = (
 # Using URL - auto-managed
 db.set_connection(url=config.DATABASE_URL)
 
+def get_related_answer(question_id):
+    # Cypher query to match the question node by question_id and retrieve the related answer node
+    query = """
+    MATCH (q:Question)-[:HAS_ANSWER]->(a:Answer)
+    WHERE q.question_id = $question_id
+    RETURN a
+    """
+    results, meta = db.cypher_query(query, params={"question_id": question_id})
+    # Assuming 'Answer' is a StructuredNode that represents the answer node in Neo4j
+    answer_nodes = [Answer.inflate(row[0]) for row in results]
+    return answer_nodes[0] if answer_nodes else None
 
 def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
     """
@@ -147,7 +158,7 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
             url=os.getenv("NEO4J_URI"),
             username=os.getenv("NEO4J_USER"),
             password=os.getenv("NEO4J_PASSWORD"),
-            index_name="vi_chunk_qa_embedding_cosine",
+            index_name="vi_chunk_retrieval_embedding_cosine",
             keyword_index_name="fts_Chunk_text",
             search_type="hybrid",
         )
@@ -161,9 +172,9 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
             url=os.getenv("NEO4J_URI"),
             username=os.getenv("NEO4J_USER"),
             password=os.getenv("NEO4J_PASSWORD"),
-            index_name="vi_question_text_embedding_cosine",
-            keyword_index_name="fts_Chunk_text",
-            search_type="hybrid",
+            index_name="vi_question_text_embedding_cosine_1536",
+            # keyword_index_name="fts_Chunk_text",
+            # search_type="hybrid",
         )
     elif retriever_type == "retrieval":
         return Neo4jVector.from_existing_index(
@@ -202,7 +213,8 @@ def create_experiment_answer(question: str):
     retrieved_nodes = retriever.get_relevant_documents(question)  # Retrieve the top 0 node
 
     if retrieved_nodes:
-        return (retrieved_nodes[0].answer)
+        answer = get_related_answer(retrieved_nodes[0].metadata["question_id"])
+        return (retrieved_nodes[0])
 
     else:
         return {"error": "No matching node found."}
