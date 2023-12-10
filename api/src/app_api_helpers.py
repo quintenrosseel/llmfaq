@@ -6,7 +6,7 @@ from langchain.vectorstores import Neo4jVector
 
 
 def docs_to_str(
-    l: List[langchain.schema.document.Document],
+    l: List[object],
     include_metadata: bool = True,
     skip_meta_keys: List[str] = [],
 ) -> str:
@@ -99,7 +99,7 @@ def get_neo4j_node_paths(
     embedding_model: object,
     embedding_index: str,
     limit: int = 5,
-) -> List[langchain.schema.document.Document]:
+) -> List[object]:
     vec_chunk_paths = db.query(
         f"""
             CALL db.index.vector.queryNodes(

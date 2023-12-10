@@ -10,6 +10,7 @@ from langchain.chains import RetrievalQA  # Q&A retrieval system.
 from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import (HuggingFaceEmbeddings,
+                                  OpenAIEmbeddings,
                                   HuggingFaceInstructEmbeddings)
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
@@ -167,6 +168,33 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
 ## API ENDPOINTS =============================================
 QA_SESSION = None
 
+
+openai = OpenAIEmbeddings(
+    openai_api_key=os.getenv("OPENAI_API_KEY"),
+    model="text-embedding-ada-002" 
+)
+
+@app.get("/experiment/answer/create", status_code=201, response_model=object)
+def create_experiment_answer(question: str):
+    """
+    Endpoint that takes in a question and generates an answer.
+    Args:
+        question (str): A string representing a question.
+    Returns a string
+    """
+    query_embedding = openai.embed_query(question)
+    graph = get_retrieval_db(retriever_type="qa")
+    retriever = graph.as_retriever(search_type="similarity")
+    retrieved_nodes = retriever.get_relevant_documents(query_embedding)  # Retrieve the top 1 node
+
+    if retrieved_nodes:
+        # Assuming you want to return the node's properties as a dictionary
+        node_properties = retrieved_nodes[0].to_dict()
+        return node_properties
+    else:
+        return {"error": "No matching node found."}
+
+    return query_result 
 
 # TODO: Add auto-merge pipeline
 # TODO: Add Translation Interface
