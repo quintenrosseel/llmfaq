@@ -104,6 +104,9 @@ class Chunk(StructuredNode):
     chunk_overlap = IntegerProperty()
     next_chunk = RelationshipTo("Chunk", "NEXT_CHUNK")
 
+class Answer(StructuredNode):
+    answer_id = IntegerProperty()
+    text = StringProperty()
 
 class QA(StructuredNode):
     config_temperature = FloatProperty()
@@ -214,8 +217,7 @@ def create_experiment_answer(question: str):
 
     if retrieved_nodes:
         answer = get_related_answer(retrieved_nodes[0].metadata["question_id"])
-        return (retrieved_nodes[0])
-
+        return answer.text 
     else:
         return {"error": "No matching node found."}
 
