@@ -202,7 +202,7 @@ def create_experiment_answer(question: str):
     retrieved_nodes = retriever.get_relevant_documents(question)  # Retrieve the top 0 node
 
     if retrieved_nodes:
-        return (retrieved_nodes[0].page_content)
+        return (retrieved_nodes[0].answer)
 
     else:
         return {"error": "No matching node found."}
