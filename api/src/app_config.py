@@ -4,6 +4,7 @@ APP_DEBUG = False
 
 
 # TODO: Adjust prompt to indicate source of context (webpage url)
+# TODO: Add CoT Prompting: https://www.kdnuggets.com/2023/07/power-chain-thought-prompting-large-language-models.html
 BASE_PROMPT_TEMPLATE_EN = """Answer the question based only on the following context:
 {context}
 
@@ -64,13 +65,13 @@ Welcome to the LLM QA API 🚀
 """
 
 QA_CORECTNESS_CHOICES = {
-    0: "Antwoord is duidelijk/accuraat 👌" 
-    1: "Geen mening over de duidelijkheid/accuraatheid 🙂" 
-    2: "Antwoord is onduidelijk/inaccuraat 👎,"
+    0: "Antwoord is duidelijk/accuraat 👌",
+    1: "Geen mening over de duidelijkheid/accuraatheid 🙂",
+    2: "Antwoord is onduidelijk/inaccuraat 👎"
 }
 
 QA_HELPFULNESS_CHOICES = {
-    0: "Antwoord helpt mij 😀" 
-    1: "Geen mening over behulpzaamheid 🙂" 
-    2: "Antwoord helpt mij niet 😕" 
+    0: "Antwoord helpt mij 😀",
+    1: "Geen mening over behulpzaamheid 🙂",
+    2: "Antwoord helpt mij niet 😕"
 }

@@ -9,32 +9,21 @@ from fastapi import FastAPI
 from langchain.chains import RetrievalQA  # Q&A retrieval system.
 from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
-from langchain.embeddings import HuggingFaceEmbeddings, HuggingFaceInstructEmbeddings
+from langchain.embeddings import (HuggingFaceEmbeddings,
+                                  HuggingFaceInstructEmbeddings)
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langchain.vectorstores import Neo4jVector
 from neo4j import GraphDatabase
-from neomodel import (
-    ArrayProperty,
-    FloatProperty,
-    IntegerProperty,
-    RelationshipTo,
-    StringProperty,
-    StructuredNode,
-    UniqueIdProperty,
-    config,
-    db,
-)
+from neomodel import (ArrayProperty, FloatProperty, IntegerProperty,
+                      RelationshipTo, StringProperty, StructuredNode,
+                      UniqueIdProperty, config, db)
 from neomodel.contrib import SemiStructuredNode
 from neomodel.core import NodeClassAlreadyDefined
 from pydantic import BaseModel
 
-from app_api_helpers import (
-    chunk_paths_to_docs,
-    docs_to_str,
-    get_neo4j_node_paths,
-    question_to_context,
-)
+from app_api_helpers import (chunk_paths_to_docs, docs_to_str,
+                             get_neo4j_node_paths, question_to_context)
 from app_config import API_DESCRIPTION, APP_DEBUG, BASE_PROMPT_TEMPLATE_NL
 from app_models import DBResponse, QASession
 
@@ -49,6 +38,9 @@ if APP_DEBUG:
     langchain.debug = True
 
 load_dotenv()
+
+
+# TODO: add simple API call that doesn't use a self-hosted LLM. 
 
 # FastAPI
 app = FastAPI(
@@ -75,7 +67,7 @@ encode_kwargs = {
 }
 
 # TODO: Cleanup Huggingface Imports
-instructor_model: langchain.embeddings.Embeddings = HuggingFaceInstructEmbeddings(
+instructor_model = HuggingFaceInstructEmbeddings(
     model_name="hkunlp/instructor-xl",
     cache_folder="src/models/hkunlp_instructor-xl",
     embed_instruction="Represent the Medical question for retrieving supporting paragraphs: ",
@@ -83,7 +75,7 @@ instructor_model: langchain.embeddings.Embeddings = HuggingFaceInstructEmbedding
     encode_kwargs=encode_kwargs,
 )
 
-robbert_model: langchain.embeddings.Embeddings = HuggingFaceEmbeddings(
+robbert_model = HuggingFaceEmbeddings(
     model_name="jegorkitskerkin/robbert-v2-dutch-base-mqa-finetuned",
     cache_folder="src/models/robbert-v2-dutch-base-mqa-finetuned",
     model_kwargs=model_kwargs,
@@ -176,6 +168,8 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
 QA_SESSION = None
 
 
+# TODO: Add auto-merge pipeline
+# TODO: Add Translation Interface
 @app.post("/answer/create", status_code=201, response_model=QASession)
 def create_answer(session: QASession):
     """
