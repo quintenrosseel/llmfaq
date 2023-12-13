@@ -3,12 +3,13 @@ variable "whitelisted_ips" {
   type    = list(string)
   default = [
     "91.180.55.182",     # Kroonlaan 222
-    "109.131.110.87",    # Neerijse Steenweg 36
+    "91.182.220.66",    # Neerijse Steenweg 36
     "165.225.12.117",    # Atlas Copco, Wilrijk
     "81.164.217.80",     # Benoit's home (Maud)
     "77.109.89.232",      # Benoit's home (Antwerpse Steenweg)
     "94.143.189.243",      # Brussels Office  
-    "149.154.233.132"   # Yann's IP addres
+    "149.154.233.132",   # Yann's IP addres
+    # "213.246.223.34" # Billit's IP
   ]  # You can add more IPs to this list
 }
 
