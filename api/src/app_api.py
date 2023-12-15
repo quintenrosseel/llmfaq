@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List
 
 import langchain
+import numpy as np
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -28,6 +29,13 @@ from app_api_helpers import (chunk_paths_to_docs, docs_to_str,
 from app_config import API_DESCRIPTION, APP_DEBUG, BASE_PROMPT_TEMPLATE_NL
 from app_models import DBResponse, QASession
 
+load_dotenv()
+
+openai = OpenAIEmbeddings(
+    openai_api_key="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",
+    model="text-embedding-ada-002" 
+)
+
 """
     This is a FastAPI application that provides 
     three endpoints to query a Neo4j database and return objects as results.
@@ -38,7 +46,6 @@ if APP_DEBUG:
     langchain.verbose = True
     langchain.debug = True
 
-load_dotenv()
 
 
 # TODO: add simple API call that doesn't use a self-hosted LLM. 
@@ -66,22 +73,6 @@ encode_kwargs = {
     # 'normalize_embeddings': True,
     "show_progress_bar": False
 }
-
-# TODO: Cleanup Huggingface Imports
-instructor_model = HuggingFaceInstructEmbeddings(
-    model_name="hkunlp/instructor-xl",
-    cache_folder="src/models/hkunlp_instructor-xl",
-    embed_instruction="Represent the Medical question for retrieving supporting paragraphs: ",
-    model_kwargs=model_kwargs,
-    encode_kwargs=encode_kwargs,
-)
-
-robbert_model = HuggingFaceEmbeddings(
-    model_name="jegorkitskerkin/robbert-v2-dutch-base-mqa-finetuned",
-    cache_folder="src/models/robbert-v2-dutch-base-mqa-finetuned",
-    model_kwargs=model_kwargs,
-    encode_kwargs=encode_kwargs,
-)
 
 #### DB =================
 # driver = GraphDatabase.driver(
@@ -155,17 +146,7 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
     """
     Don't use global variables to avoid DB connection timeouts.
     """
-    if retriever_type == "qa":
-        return Neo4jVector.from_existing_index(
-            embedding=robbert_model,
-            url=os.getenv("NEO4J_URI"),
-            username=os.getenv("NEO4J_USER"),
-            password=os.getenv("NEO4J_PASSWORD"),
-            index_name="vi_chunk_retrieval_embedding_cosine",
-            keyword_index_name="fts_Chunk_text",
-            search_type="hybrid",
-        )
-    elif retriever_type == "experiment":
+    if retriever_type == "experiment":
         embedding = OpenAIEmbeddings(
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             model="text-embedding-ada-002"
@@ -178,16 +159,6 @@ def get_retrieval_db(retriever_type: str = "qa") -> Neo4jVector:
             index_name="vi_question_text_embedding_cosine_1536",
             # keyword_index_name="fts_Chunk_text",
             # search_type="hybrid",
-        )
-    elif retriever_type == "retrieval":
-        return Neo4jVector.from_existing_index(
-            embedding=instructor_model,
-            url=os.getenv("NEO4J_URI"),
-            username=os.getenv("NEO4J_USER"),
-            password=os.getenv("NEO4J_PASSWORD"),
-            index_name="vi_chunk_retrieval_embedding_cosine",
-            keyword_index_name="fts_Chunk_text",
-            search_type="hybrid",
         )
     else:
         "Invalid retriever type."
@@ -220,6 +191,125 @@ def create_experiment_answer(question: str):
         return answer.text 
     else:
         return {"error": "No matching node found."}
+
+def get_all_answers():
+    query = """
+    MATCH (a:Answer)
+    RETURN a.answer_id, properties(a)
+    """
+    results, _ = db.cypher_query(query)
+    embeddings = openai.embed_documents([answer_props.get("text", "") for answer_id, answer_props in results])
+    # Merge embeddings with answer properties and return the combined data
+    merged_results = [
+        {**answer_props, "embedding": embedding}
+        for (answer_id, answer_props), embedding in zip(results, embeddings)
+    ]
+    return merged_results
+
+# embeddings are list of numbers
+def cosine_similarity(embedding1, embedding2):
+    # Normalize the embeddings
+    embedding1 = np.array(embedding1) / np.linalg.norm(embedding1)
+    embedding2 = np.array(embedding2) / np.linalg.norm(embedding2)
+    # Compute the cosine similarity
+    similarity = np.dot(embedding1, embedding2)
+    return similarity
+
+def cosine_distance(embedding1, embedding2):
+    return 1 - cosine_similarity(embedding1, embedding2)
+
+
+@app.get("test_results", status_code=201, response_model=object)
+def get_all_questions():
+    query = """
+    MATCH (q:Question)
+    RETURN q.question_id, properties(q)
+    """
+    results, _ = db.cypher_query(query)
+    return results
+
+def test():
+    questions = get_all_questions()
+    answers = get_all_answers()
+
+    for question_id, question  in questions:
+        distances = []
+        for answer in answers:
+            distance = cosine_distance(question["text_embedding"], answer["embedding"])
+            distances.append({ "answer": answer, "distance": distance })
+        # get the answer with the lowest distance
+        distances = sorted(distances, key=lambda x: x["distance"])
+        min_distance = distances[0]
+        print(f"Question: {question['text']}\nArchetype question: {min_distance['answer']['question_archetype']}\n\nBest Answer: {min_distance['answer']['text']}\nDistance: {min_distance['distance']}")
+        distances_str = " - ".join(str(distance['distance']) for distance in distances)
+        print(distances_str)
+
+
+    for question_id, props  in results:
+        # relationships = get_question_relationships(question_id)
+        question_string = props["text"]
+        question_archetype_embedding = get_question_archetype_embedding(question_id)
+        answer = create_experiment_answer(question_string)
+        # Process each question here
+        # print(f"Question ID: {question_id}, Text: {text}, Embedding: {embedding}")
+test()
+
+def get_question_archetype_embedding(question_id):
+    # Step 1: Get the archetype_question property from the answer
+    archetype_query = """
+    MATCH (q:Question)-[:HAS_ANSWER]->(a:Answer)
+    WHERE q.question_id = $question_id
+    RETURN a.question_archetype
+    """
+    archetype_result, _ = db.cypher_query(archetype_query, params={"question_id": question_id})
+    if archetype_result:
+        archetype_question_text = archetype_result[0][0]
+
+        # Step 2: Get the embedding for the archetype question
+        embedding_query = """
+        MATCH (q:Question)
+        WHERE q.text = $archetype_question_text
+        RETURN q.question_id, properties(q)
+        """
+        embedding_result, _ = db.cypher_query(embedding_query, params={"archetype_question_text": archetype_question_text})
+        if embedding_result:
+            return np.array(embedding_result[0][0])
+    return None
+
+get_all_questions()
+
+# def flag_questions_not_closest_to_archetype():
+#     questions_embeddings = get_all_questions_embeddings()
+#     flagged_questions = {}
+
+#     for question_id, embedding in questions_embeddings.items():
+#         archetype_embedding = get_question_archetype_embedding(question_id)
+#         if archetype_embedding is not None:
+#             similarity = cosine_similarity([embedding], [archetype_embedding])[0][0]
+#             # Assuming you have a threshold to determine if the question is "close enough"
+#             threshold = 0.5  # Set your own threshold
+#             if similarity < threshold:
+#                 flagged_questions[question_id] = similarity
+
+#     return flagged_questions
+
+# Example usage:
+# flagged_questions = flag_questions_not_closest_to_archetype()
+# for question_id, similarity in flagged_questions.items():
+#     print(f"Question ID: {question_id} is not closest to the archetype with similarity: {similarity}")        
+
+def get_question_relationships(question_id):
+    query = """
+    MATCH (q:Question)-[r]->(relatedNode)
+    WHERE q.question_id = $question_id
+    RETURN type(r) as relationshipType, properties(relatedNode) as relatedProps
+    """
+    results, _ = db.cypher_query(query, params={"question_id": question_id})
+    for relationship_type, related_props in results:
+        # Process each relationship and related node properties here
+        print(f"Relationship Type: {relationship_type}, Related Node Properties: {related_props}")
+
+
 
 # TODO: Add auto-merge pipeline
 # TODO: Add Translation Interface

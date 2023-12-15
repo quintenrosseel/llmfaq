@@ -1,0 +1,24 @@
+
+
+
+
+Take each answer, calculate the embedding of each archetype_question associated to it
+
+For each question, calculate the distance between the archetype question and the question.
+
+Pick the closest archetype question
+
+Check that the closest archetype question is the associated to the question
+
+
+
+For question in questions:
+    distances = []
+    For answer in answers:
+	    distance = calculate_distance(answer.archetype_question, question)
+        distances.push({ "distance": distance, answer })
+    closest_answer = min_distance(distances)
+    If question.associated_answer == closest_answer:
+	print("great!")
+    Else:
+	print("bad")
